@@ -1,0 +1,464 @@
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from "react-router-dom";
+
+// Single-file demo E-Commerce app (React + Tailwind classes)
+// Default export is the App component so this file can be previewed directly.
+
+// Utilities
+const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+const load = (key, fallback) => {
+  try {
+    const v = localStorage.getItem(key);
+    return v ? JSON.parse(v) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+};
+
+// Sample product catalog
+const SAMPLE_PRODUCTS = [
+  { id: "p1", title: "Wireless Headphones", price: 1999, desc: "Over-ear wireless headphones with long battery life." },
+  { id: "p2", title: "Smart Watch", price: 3499, desc: "Fitness tracking, notifications and 7-day battery." },
+  { id: "p3", title: "Coffee Maker", price: 2499, desc: "Programmable drip coffee maker with timer." },
+  { id: "p4", title: "Bluetooth Speaker", price: 1299, desc: "Compact speaker with rich bass." },
+];
+
+// Simple auth: store a "users" array and currentUser in localStorage
+const initUsers = () => load("ec_users", []);
+const initCurrent = () => load("ec_currentUser", null);
+
+// Nav bar component
+function NavBar({ currentUser, onLogout }) {
+  return (
+    <nav className="bg-white shadow p-4 sticky top-0 z-10">
+      <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <Link to="/" className="text-xl font-bold">Greenura Shop</Link>
+        <div className="flex items-center gap-4">
+          <Link to="/" className="hover:underline">Home</Link>
+          <Link to="/products" className="hover:underline">Products</Link>
+          <Link to="/orders" className="hover:underline">Orders</Link>
+          <Link to="/wishlist" className="hover:underline">Wishlist</Link>
+          <Link to="/reviews" className="hover:underline">Reviews</Link>
+          <Link to="/customer-care" className="hover:underline">Customer Care</Link>
+          <Link to="/reports" className="hover:underline">Reports</Link>
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded bg-gray-100">{currentUser.name}</span>
+              <button onClick={onLogout} className="px-3 py-1 bg-red-500 text-white rounded">Logout</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link to="/login" className="px-3 py-1 bg-blue-500 text-white rounded">Login</Link>
+              <Link to="/register" className="px-3 py-1 border rounded">Register</Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// Home page
+function Home() {
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-3">Welcome to Greenura</h1>
+      <p className="mb-4">A small demo e-commerce portal showcasing navigation, forms with validation, orders, wishlist, reviews, customer care and reporting features.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {SAMPLE_PRODUCTS.slice(0, 4).map(p => (
+          <div key={p.id} className="p-4 border rounded">
+            <h3 className="font-semibold">{p.title}</h3>
+            <p className="text-sm text-gray-600">{p.desc}</p>
+            <div className="mt-2">₹{p.price}</div>
+            <Link to={`/products/${p.id}`} className="mt-2 inline-block text-blue-600 underline">View</Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Products list
+function Products({ onAddToWishlist, onPlaceOrder }) {
+  const navigate = useNavigate();
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Products</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {SAMPLE_PRODUCTS.map(p => (
+          <div key={p.id} className="p-4 border rounded flex flex-col">
+            <div className="flex-1">
+              <h3 className="font-semibold">{p.title}</h3>
+              <p className="text-sm text-gray-600">{p.desc}</p>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-lg">₹{p.price}</div>
+              <div className="flex gap-2">
+                <button onClick={() => onAddToWishlist(p)} className="px-3 py-1 border rounded">Wishlist</button>
+                <button onClick={() => { onPlaceOrder(p); navigate('/orders'); }} className="px-3 py-1 bg-green-600 text-white rounded">Buy</button>
+                <Link to={`/products/${p.id}`} className="px-3 py-1 border rounded">Details</Link>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Product details page
+function ProductDetails({ onAddToWishlist, onPlaceOrder }) {
+  const { id } = useParams();
+  const product = SAMPLE_PRODUCTS.find(p => p.id === id);
+  if (!product) return <div className="p-6">Product not found.</div>;
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h2 className="text-2xl font-bold">{product.title}</h2>
+      <p className="text-gray-700 mt-2">{product.desc}</p>
+      <div className="mt-4">Price: ₹{product.price}</div>
+      <div className="mt-4 flex gap-2">
+        <button onClick={() => onAddToWishlist(product)} className="px-4 py-2 border rounded">Add to Wishlist</button>
+        <button onClick={() => onPlaceOrder(product)} className="px-4 py-2 bg-green-600 text-white rounded">Buy Now</button>
+      </div>
+    </div>
+  );
+}
+
+// Registration form with validation
+function Register({ onRegister }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const navigate = useNavigate();
+
+  const validate = () => {
+    const e = {};
+    if (!name.trim()) e.name = "Name is required";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) e.email = "Enter a valid email";
+    if (password.length < 6) e.password = "Password must be at least 6 characters";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!validate()) return;
+    const success = onRegister({ name, email, password });
+    if (success) navigate('/');
+  };
+
+  return (
+    <div className="max-w-md mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Register</h2>
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label className="block text-sm">Name</label>
+          <input value={name} onChange={e => setName(e.target.value)} className="w-full border p-2 rounded" />
+          {errors.name && <div className="text-red-500 text-sm">{errors.name}</div>}
+        </div>
+        <div>
+          <label className="block text-sm">Email</label>
+          <input value={email} onChange={e => setEmail(e.target.value)} className="w-full border p-2 rounded" />
+          {errors.email && <div className="text-red-500 text-sm">{errors.email}</div>}
+        </div>
+        <div>
+          <label className="block text-sm">Password</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border p-2 rounded" />
+          {errors.password && <div className="text-red-500 text-sm">{errors.password}</div>}
+        </div>
+        <div>
+          <button className="w-full py-2 bg-blue-600 text-white rounded">Create account</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// Login form with validation
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  const submit = (ev) => {
+    ev.preventDefault();
+    if (!email || !password) {
+      setError("Enter email and password");
+      return;
+    }
+    const user = onLogin({ email, password });
+    if (user) navigate('/');
+    else setError('Invalid credentials');
+  };
+
+  return (
+    <div className="max-w-md mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Login</h2>
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label className="block text-sm">Email</label>
+          <input value={email} onChange={e => setEmail(e.target.value)} className="w-full border p-2 rounded" />
+        </div>
+        <div>
+          <label className="block text-sm">Password</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border p-2 rounded" />
+        </div>
+        {error && <div className="text-red-500">{error}</div>}
+        <div>
+          <button className="w-full py-2 bg-blue-600 text-white rounded">Login</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// Orders page
+function Orders({ orders, onCancel }) {
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Your Orders</h2>
+      {orders.length === 0 ? (
+        <div>No orders yet.</div>
+      ) : (
+        <div className="grid gap-4">
+          {orders.map(o => (
+            <div key={o.orderId} className="p-4 border rounded flex justify-between items-center">
+              <div>
+                <div className="font-semibold">{o.title}</div>
+                <div className="text-sm text-gray-600">Order #{o.orderId} • ₹{o.price}</div>
+              </div>
+              <div className="flex gap-2">
+                <div className="text-sm">{new Date(o.date).toLocaleString()}</div>
+                <button onClick={() => onCancel(o.orderId)} className="px-3 py-1 border rounded">Cancel</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Wishlist page
+function Wishlist({ wishlist, onRemove }) {
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Wishlist</h2>
+      {wishlist.length === 0 ? (
+        <div>Your wishlist is empty.</div>
+      ) : (
+        <div className="grid gap-4">
+          {wishlist.map(p => (
+            <div key={p.id} className="p-4 border rounded flex justify-between items-center">
+              <div>
+                <div className="font-semibold">{p.title}</div>
+                <div className="text-sm text-gray-600">₹{p.price}</div>
+              </div>
+              <button onClick={() => onRemove(p.id)} className="px-3 py-1 border rounded">Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Reviews & comments
+function Reviews({ reviews, onAddReview }) {
+  const [text, setText] = useState("");
+  const [rating, setRating] = useState(5);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    onAddReview({ id: Date.now(), text: text.trim(), rating, date: new Date().toISOString() });
+    setText("");
+    setRating(5);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-3">Comments & Reviews</h2>
+      <form onSubmit={submit} className="space-y-3 mb-4">
+        <textarea value={text} onChange={e => setText(e.target.value)} className="w-full border p-2 rounded" rows={4} placeholder="Write your review..." />
+        <div className="flex items-center gap-2">
+          <label>Rating</label>
+          <select value={rating} onChange={e=>setRating(Number(e.target.value))} className="border p-1 rounded">
+            {[5,4,3,2,1].map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button className="px-3 py-1 bg-blue-600 text-white rounded">Add Review</button>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        {reviews.length === 0 ? <div>No reviews yet.</div> : reviews.slice().reverse().map(rv => (
+          <div key={rv.id} className="p-3 border rounded">
+            <div className="text-sm text-gray-600">{new Date(rv.date).toLocaleString()} • Rating: {rv.rating}/5</div>
+            <div>{rv.text}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Customer care page with a simple ticket form
+function CustomerCare({ onCreateTicket, tickets }) {
+  const [message, setMessage] = useState("");
+  const submit = (e) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+    onCreateTicket({ id: Date.now(), message: message.trim(), status: 'open', date: new Date().toISOString() });
+    setMessage("");
+  };
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-3">Customer Care</h2>
+      <form onSubmit={submit} className="mb-4">
+        <textarea value={message} onChange={e=>setMessage(e.target.value)} className="w-full border p-2 rounded" rows={4} placeholder="Describe your issue..." />
+        <div className="mt-2">
+          <button className="px-4 py-2 bg-indigo-600 text-white rounded">Open Ticket</button>
+        </div>
+      </form>
+
+      <h3 className="text-lg font-semibold mb-2">Your Tickets</h3>
+      <div className="space-y-2">
+        {tickets.length === 0 ? <div>No tickets.</div> : tickets.slice().reverse().map(t=> (
+          <div key={t.id} className="p-3 border rounded">
+            <div className="text-sm text-gray-600">{new Date(t.date).toLocaleString()} • {t.status}</div>
+            <div>{t.message}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Simple reporting - counts and export (CSV) functionality
+function Reports({ orders, wishlist, reviews, tickets }) {
+  const totalSales = orders.reduce((s,o) => s + o.price, 0);
+
+  const exportCSV = (rows, filename) => {
+    const csv = rows.map(r => Object.values(r).map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Reports</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="p-4 border rounded">
+          <div className="text-sm text-gray-600">Total orders</div>
+          <div className="text-2xl font-bold">{orders.length}</div>
+        </div>
+        <div className="p-4 border rounded">
+          <div className="text-sm text-gray-600">Total wishlist items</div>
+          <div className="text-2xl font-bold">{wishlist.length}</div>
+        </div>
+        <div className="p-4 border rounded">
+          <div className="text-sm text-gray-600">Total sales (₹)</div>
+          <div className="text-2xl font-bold">{totalSales}</div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={() => exportCSV(orders, 'orders.csv')} className="px-3 py-1 border rounded">Export Orders CSV</button>
+        <button onClick={() => exportCSV(wishlist, 'wishlist.csv')} className="px-3 py-1 border rounded">Export Wishlist CSV</button>
+        <button onClick={() => exportCSV(reviews, 'reviews.csv')} className="px-3 py-1 border rounded">Export Reviews CSV</button>
+        <button onClick={() => exportCSV(tickets, 'tickets.csv')} className="px-3 py-1 border rounded">Export Tickets CSV</button>
+      </div>
+    </div>
+  );
+}
+
+// App root
+export default function App() {
+  const [users, setUsers] = useState(initUsers());
+  const [currentUser, setCurrentUser] = useState(initCurrent());
+  const [orders, setOrders] = useState(load('ec_orders', []));
+  const [wishlist, setWishlist] = useState(load('ec_wishlist', []));
+  const [reviews, setReviews] = useState(load('ec_reviews', []));
+  const [tickets, setTickets] = useState(load('ec_tickets', []));
+
+  useEffect(() => save('ec_users', users), [users]);
+  useEffect(() => save('ec_currentUser', currentUser), [currentUser]);
+  useEffect(() => save('ec_orders', orders), [orders]);
+  useEffect(() => save('ec_wishlist', wishlist), [wishlist]);
+  useEffect(() => save('ec_reviews', reviews), [reviews]);
+  useEffect(() => save('ec_tickets', tickets), [tickets]);
+
+  const handleRegister = ({ name, email, password }) => {
+    if (users.find(u => u.email === email)) {
+      alert('Email already exists');
+      return false;
+    }
+    const user = { id: Date.now(), name, email, password };
+    setUsers(prev => [...prev, user]);
+    setCurrentUser({ id: user.id, name: user.name, email: user.email });
+    return true;
+  };
+
+  const handleLogin = ({ email, password }) => {
+    const user = users.find(u => u.email === email && u.password === password);
+    if (user) {
+      setCurrentUser({ id: user.id, name: user.name, email: user.email });
+      return user;
+    }
+    return null;
+  };
+
+  const handleLogout = () => setCurrentUser(null);
+
+  const addToWishlist = (product) => {
+    if (!currentUser) return alert('Please login to add to wishlist');
+    if (wishlist.find(p=>p.id===product.id)) return alert('Already in wishlist');
+    setWishlist(prev => [...prev, { ...product }]);
+  };
+
+  const removeFromWishlist = (id) => setWishlist(prev => prev.filter(p=>p.id!==id));
+
+  const placeOrder = (product) => {
+    if (!currentUser) return alert('Please login to place order');
+    const order = { orderId: 'ORD' + Date.now(), title: product.title, price: product.price, date: new Date().toISOString(), userId: currentUser.id };
+    setOrders(prev => [...prev, order]);
+    alert('Order placed: ' + order.orderId);
+  };
+
+  const cancelOrder = (orderId) => setOrders(prev => prev.filter(o => o.orderId !== orderId));
+
+  const addReview = (rv) => {
+    if (!currentUser) return alert('Please login to add a review');
+    setReviews(prev => [...prev, { ...rv, userId: currentUser.id, userName: currentUser.name }]);
+  };
+
+  const createTicket = (t) => {
+    if (!currentUser) return alert('Please login to create a ticket');
+    setTickets(prev => [...prev, { ...t, userId: currentUser.id, userName: currentUser.name }]);
+  };
+
+  return (
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <NavBar currentUser={currentUser} onLogout={handleLogout} />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/products" element={<Products onAddToWishlist={addToWishlist} onPlaceOrder={placeOrder} />} />
+          <Route path="/products/:id" element={<ProductDetails onAddToWishlist={addToWishlist} onPlaceOrder={placeOrder} />} />
+          <Route path="/register" element={<Register onRegister={handleRegister} />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/orders" element={<Orders orders={orders.filter(o=> !currentUser || o.userId===currentUser.id)} onCancel={cancelOrder} />} />
+          <Route path="/wishlist" element={<Wishlist wishlist={wishlist} onRemove={removeFromWishlist} />} />
+          <Route path="/reviews" element={<Reviews reviews={reviews} onAddReview={addReview} />} />
+          <Route path="/customer-care" element={<CustomerCare tickets={tickets.filter(t=> !currentUser || t.userId===currentUser.id)} onCreateTicket={createTicket} />} />
+          <Route path="/reports" element={<Reports orders={orders} wishlist={wishlist} reviews={reviews} tickets={tickets} />} />
+          <Route path="*" element={<div className="p-6">Page not found</div>} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
